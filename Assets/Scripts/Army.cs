@@ -5,36 +5,53 @@ public class Army : MonoBehaviour
     [SerializeField]
     float speed;
 
-    [SerializeField]
-    int playerID;
+    Player player;
 
+    Town townFrom;
     Town townToAttack;
 
+    [SerializeField]
     int armyPopulation;
-    
+
+    static int sid = 0;
+    int id = 0;
+
+    void Awake()
+    {
+        id = sid++;
+    }
+
     void Start()
     {
-
+        
+        GameInterface.GetInstance().RegisterArmy(this);
     }
 
-    void Update()
+    void FixedUpdate()
     {
-        transform.position = Vector3.MoveTowards(transform.position, townToAttack.transform.position, speed);
+        transform.position = Vector3.MoveTowards(transform.position, townToAttack.transform.position, speed * Time.fixedDeltaTime);
     }
 
-    void OnCollisionEnter(Collision collision_)
+    void OnTriggerEnter(Collider collider_)
     {
-        Town town = collision_.gameObject.GetComponent<Town>();
+        Town town = collider_.gameObject.GetComponent<Town>();
+
+        // we may have no population if we collided with another army or if we collided with the town we left, do nothing
+        if(GetPopulation() == 0 || town == townFrom)
+        {
+            return;
+        }
+
         if(town != null)
         {
             Town.AttackTown(town, this);
             return;
         }
 
-        Army army = collision_.gameObject.GetComponent<Army>();
+        Army army = collider_.gameObject.GetComponent<Army>();
         if(army != null)
         {
-            Army.AttackArmy(army, this);
+            Army.AttackArmy(this, army);
 
             if(GetPopulation() == 0)
             {
@@ -58,14 +75,19 @@ public class Army : MonoBehaviour
         return armyPopulation;
     }
 
-    public void SetPlayer(int playerID_)
+    public void SetPlayer(Player player_)
     {
-        playerID = playerID_;
+        player = player_;
     }
 
-    public int GetPlayerID()
+    public Player GetPlayer()
     {
-        return playerID;
+        return player;
+    }
+
+    public void SetTownFrom(Town town_)
+    {
+        townFrom = town_;
     }
 
     public void SetTownToAttack(Town town_)
@@ -83,7 +105,15 @@ public class Army : MonoBehaviour
 
     static void AttackArmy(Army armyOne_, Army armyTwo_)
     {
-        int remainder = armyOne_.ReducePopulation(armyTwo_.GetPopulation());
-        armyTwo_.SetPopulation(remainder);
+        if (armyOne_.GetPlayer() != armyTwo_.GetPlayer())
+        {
+            int remainder = armyOne_.ReducePopulation(armyTwo_.GetPopulation());
+            armyTwo_.SetPopulation(remainder);
+        }
+        else
+        {
+            armyOne_.SetPopulation(armyOne_.GetPopulation() + armyTwo_.GetPopulation());
+            armyTwo_.SetPopulation(0);
+        }
     }
 }

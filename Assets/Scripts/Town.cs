@@ -20,22 +20,27 @@ public class Town : MonoBehaviour
     [SerializeField]
     float defenderMax;
 
-    [SerializeField]
-    int playerID;
+    Player player;
 
 
     void Start()
     {
+        GameInterface.GetInstance().RegisterTown(this);
+
         populationGrowth = (float)townSize / 5;
         attackerMax = townSize * 10;
         defenderMax = townSize * 5;
+        defenderPopulation = defenderMax;
     }
 
     void FixedUpdate()
     {
         float populationGrown = populationGrowth * Time.fixedDeltaTime;
 
-        IncreasePopulation(populationGrown);
+        if (attackerPopulation < attackerMax)
+        {
+            IncreasePopulation(populationGrown);
+        }
     }
 
     public int GetTownSize()
@@ -49,14 +54,14 @@ public class Town : MonoBehaviour
         transform.localScale = new Vector3(1 + (townSize / 10), 1 + (townSize / 10), 1 + (townSize / 10));
     }
 
-    public void SetPlayer(int playerID_)
+    public void SetPlayer(Player player_)
     {
-        playerID = playerID_;
+        player = player_;
     }
 
-    public int GetPlayerID()
+    public Player GetPlayer()
     {
-        return playerID;
+        return player;
     }
 
     public int GetAttackerPopulation()
@@ -100,6 +105,10 @@ public class Town : MonoBehaviour
             Army army = Instantiate(prefabArmy, transform.position, Quaternion.identity) as Army;
             army.SetPopulation(GetAttackerPopulation());
             attackerPopulation -= GetAttackerPopulation();
+
+            army.SetPlayer(player);
+            army.SetTownFrom(this);
+
             return army;
         }
         return null;
@@ -120,7 +129,7 @@ public class Town : MonoBehaviour
 
     public static void AttackTown(Town town_, Army army_)
     {
-        if(town_.GetPlayerID() == army_.GetPlayerID()) // reinforce
+        if(town_.GetPlayer() == army_.GetPlayer()) // reinforce
         {
             town_.IncreasePopulation(army_.GetPopulation());
             Destroy(army_.gameObject);
@@ -131,9 +140,11 @@ public class Town : MonoBehaviour
 
             if(remainder > 0)
             {
-                town_.SetPlayer(army_.GetPlayerID());
+                town_.SetPlayer(army_.GetPlayer());
                 town_.IncreasePopulation(remainder);
             }
+
+            Destroy(army_.gameObject);
         }
     }
 }

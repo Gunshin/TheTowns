@@ -1,18 +1,22 @@
 ﻿using UnityEngine;
+using System.Collections.Generic;
 
 public class Player : MonoBehaviour
 {
+    [SerializeField]
+    List<Town> selectedTowns = new List<Town>();
 
-    Town selectedTown;
-
-    public void SetSelectedTown(Town town_)
+    public void AddSelectedTown(Town town_)
     {
-        selectedTown = town_;
+        if(!selectedTowns.Contains(town_))
+        {
+            selectedTowns.Add(town_);
+        }
     }
 
-    public Town GetSelectedTown()
+    public List<Town> GetSelectedTowns()
     {
-        return selectedTown;
+        return selectedTowns;
     }
 
 
