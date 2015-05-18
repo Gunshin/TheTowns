@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using System.Collections.Generic;
 
 public class Army : MonoBehaviour
 {
@@ -16,6 +17,8 @@ public class Army : MonoBehaviour
     static int sid = 0;
     int id = 0;
 
+    List<Vector3> path;
+
     void Awake()
     {
         id = sid++;
@@ -29,7 +32,14 @@ public class Army : MonoBehaviour
 
     void FixedUpdate()
     {
-        transform.position = Vector3.MoveTowards(transform.position, townToAttack.transform.position, speed * Time.fixedDeltaTime);
+        if(path != null && path.Count > 0)
+        {
+            transform.position = Vector3.MoveTowards(transform.position, path[0], speed * Time.fixedDeltaTime);
+            if(Vector3.Distance(transform.position, path[0]) < 0.1)
+            {
+                path.RemoveAt(0);
+            }
+        }
     }
 
     void OnTriggerEnter(Collider collider_)
@@ -68,6 +78,7 @@ public class Army : MonoBehaviour
     public void SetPopulation(int population_)
     {
         armyPopulation = population_;
+        UpdateSize();
     }
 
     public int GetPopulation()
@@ -78,6 +89,7 @@ public class Army : MonoBehaviour
     public void SetPlayer(Player player_)
     {
         player = player_;
+        GetComponent<MeshRenderer>().material.color = player.GetColour();
     }
 
     public Player GetPlayer()
@@ -93,6 +105,10 @@ public class Army : MonoBehaviour
     public void SetTownToAttack(Town town_)
     {
         townToAttack = town_;
+        Vector2 start = new Vector2(this.transform.position.x, this.transform.position.z); // y is up, so has now effect on position
+        Vector2 end = new Vector2(townToAttack.transform.position.x, townToAttack.transform.position.z);
+        path = GameInterface.instance.GetPath(start, end);
+
     }
 
     public int ReducePopulation(int populationCount_)
@@ -101,6 +117,17 @@ public class Army : MonoBehaviour
         armyPopulation = Mathf.Clamp(armyPopulation - populationCount_, 0, populationCount_);
 
         return remainderAfterAttackers;
+    }
+
+    public void OnDestroy()
+    {
+        GameInterface.GetInstance().UnregisterArmy(this);
+    }
+
+    public void UpdateSize()
+    {
+        int size = Mathf.Clamp(armyPopulation / 10, 1, 5);
+        transform.localScale = new Vector3(size, size, size);
     }
 
     static void AttackArmy(Army armyOne_, Army armyTwo_)
@@ -115,5 +142,8 @@ public class Army : MonoBehaviour
             armyOne_.SetPopulation(armyOne_.GetPopulation() + armyTwo_.GetPopulation());
             armyTwo_.SetPopulation(0);
         }
+
+        armyOne_.UpdateSize();
+        armyTwo_.UpdateSize();
     }
 }

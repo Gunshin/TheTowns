@@ -1,9 +1,12 @@
 ﻿using UnityEngine;
+using System.Collections.Generic;
 
 public class Town : MonoBehaviour
 {
     [SerializeField]
     Army prefabArmy;
+
+    GameObject selectionTorus;
 
     [SerializeField]
     int townSize;
@@ -20,17 +23,25 @@ public class Town : MonoBehaviour
     [SerializeField]
     float defenderMax;
 
+    [SerializeField]
+    TextMesh details;
+
     Player player;
 
+    float testingMultiplier = 1;
 
     void Start()
     {
-        GameInterface.GetInstance().RegisterTown(this);
+        selectionTorus = transform.FindChild("SelectionTorus").gameObject;
 
-        populationGrowth = (float)townSize / 5;
+
+
+        populationGrowth = (float)townSize / 5 * testingMultiplier;
         attackerMax = townSize * 10;
         defenderMax = townSize * 5;
         defenderPopulation = defenderMax;
+
+        transform.localScale = new Vector3(townSize, townSize, townSize);
     }
 
     void FixedUpdate()
@@ -40,6 +51,11 @@ public class Town : MonoBehaviour
         if (attackerPopulation < attackerMax)
         {
             IncreasePopulation(populationGrown);
+        }
+
+        if(GetTotalPopulation() >= attackerMax + defenderMax)
+        {
+            OnOverpopulated();
         }
     }
 
@@ -56,7 +72,12 @@ public class Town : MonoBehaviour
 
     public void SetPlayer(Player player_)
     {
+        GameInterface.GetInstance().UnregisterTown(this);
         player = player_;
+        GameInterface.GetInstance().RegisterTown(this);
+
+        GetComponent<MeshRenderer>().material.color = player.GetColour();
+
     }
 
     public Player GetPlayer()
@@ -79,12 +100,41 @@ public class Town : MonoBehaviour
         return GetDefenderPopulation() + GetAttackerPopulation();
     }
 
+    public int GetMaxPopulation()
+    {
+        return (int)(attackerMax + defenderMax);
+    }
+
     public void IncreasePopulation(float populationCount_)
     {
+        bool hadMaxDefenders = GetDefenderPopulation() == defenderMax;
+
         float defenderOverflow = Mathf.Clamp(defenderPopulation + populationCount_ - defenderMax, 0, populationCount_);
         defenderPopulation = Mathf.Clamp(defenderPopulation + populationCount_, 0, defenderMax);
 
+        if (GetDefenderPopulation() == defenderMax && !hadMaxDefenders)
+        {
+            OnMaxDefenders();
+        }
+
+        bool hadMaxAttackers = GetAttackerPopulation() == attackerMax;
+        int aBefore = Mathf.FloorToInt(attackerPopulation);
+
         attackerPopulation = attackerPopulation + defenderOverflow; // we only care about attackerMax when regenerating population over time
+
+        int aAfter = Mathf.FloorToInt(attackerPopulation);
+
+        if(aAfter - aBefore >= 1)
+        {
+            OnAttackerPopulationIncreased();
+        }
+
+        if(GetAttackerPopulation() == attackerMax && !hadMaxAttackers) // max attackers means max population
+        {
+            OnMaxPopulation();
+        }
+
+        details.text = "Offensive: " + ((int)attackerPopulation) + "\nDefensive: " + ((int)defenderPopulation);
     }
 
     public float ReducePopulation(float populationCount_)
@@ -116,11 +166,24 @@ public class Town : MonoBehaviour
 
     public bool SendAttack(Town townToAttack_)
     {
+        if(townToAttack_ == this)
+        {
+            return false;
+        }
+
         Army army = RaiseAttackers();
 
         if (army != null)
         {
             army.SetTownToAttack(townToAttack_);
+            if (townToAttack_.GetPlayer() == this.GetPlayer())
+            {
+                OnReinforce(townToAttack_, army);
+            }
+            else
+            {
+                OnAttack(townToAttack_, army);
+            }
             return true;
         }
 
@@ -129,7 +192,7 @@ public class Town : MonoBehaviour
 
     public static void AttackTown(Town town_, Army army_)
     {
-        if(town_.GetPlayer() == army_.GetPlayer()) // reinforce
+        if (town_.GetPlayer() == army_.GetPlayer()) // reinforce
         {
             town_.IncreasePopulation(army_.GetPopulation());
             Destroy(army_.gameObject);
@@ -138,7 +201,7 @@ public class Town : MonoBehaviour
         {
             float remainder = town_.ReducePopulation(army_.GetPopulation());
 
-            if(remainder > 0)
+            if (remainder > 0)
             {
                 town_.SetPlayer(army_.GetPlayer());
                 town_.IncreasePopulation(remainder);
@@ -146,5 +209,71 @@ public class Town : MonoBehaviour
 
             Destroy(army_.gameObject);
         }
+    }
+
+    public void Select()
+    {
+        selectionTorus.SetActive(true);
+    }
+
+    public void Deselect()
+    {
+        selectionTorus.SetActive(false);
+    }
+
+    void OnAttack(Town target_, Army army_)
+    {
+        EventManager.instance.Activate((int)GameInterface.Events.Attack, new List<object>
+        {
+            this,
+            target_,
+            army_
+        });
+    }
+
+    void OnMaxDefenders()
+    {
+        EventManager.instance.Activate((int)GameInterface.Events.MaxDefenders, new List<object>
+        {
+            this,
+            GetDefenderPopulation()
+        });
+    }
+
+    void OnMaxPopulation()
+    {
+        EventManager.instance.Activate((int)GameInterface.Events.MaxPopulation, new List<object>
+        {
+            this,
+            GetTotalPopulation()
+        });
+    }
+
+    void OnReinforce(Town target_, Army army_)
+    {
+        EventManager.instance.Activate((int)GameInterface.Events.Reinforce, new List<object>
+        {
+            this,
+            target_,
+            army_
+        });
+    }
+
+    void OnOverpopulated()
+    {
+        EventManager.instance.Activate((int)GameInterface.Events.OverPopulated, new List<object>
+        {
+            this,
+            GetTotalPopulation()
+        });
+    }
+
+    void OnAttackerPopulationIncreased()
+    {
+        EventManager.instance.Activate((int)GameInterface.Events.AttackerPopulationIncreased, new List<object>
+        {
+            this,
+            GetTotalPopulation()
+        });
     }
 }

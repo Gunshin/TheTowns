@@ -4,6 +4,9 @@ using System.Collections.Generic;
 public class GameInput : MonoBehaviour
 {
 
+    [SerializeField]
+    Canvas menu;
+
     void Start()
     {
 
@@ -11,6 +14,11 @@ public class GameInput : MonoBehaviour
 
     void Update()
     {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            menu.gameObject.SetActive(!menu.gameObject.activeSelf);
+        }
+
         if (Input.GetKeyDown(KeyCode.Mouse0))
         {
             Town town = GetTown();
@@ -20,7 +28,7 @@ public class GameInput : MonoBehaviour
             }
             else
             {
-                GameInterface.GetInstance().GetHumanPlayer().GetSelectedTowns().Clear();
+                GameInterface.GetInstance().GetHumanPlayer().Deselect();
             }
         }
         else if(Input.GetKeyDown(KeyCode.Mouse1))
@@ -31,6 +39,8 @@ public class GameInput : MonoBehaviour
                 AttackTown(town, GameInterface.GetInstance().GetHumanPlayer().GetSelectedTowns());
             }
         }
+
+        
     }
 
     void AttackTown(Town targetTown_, List<Town> attackingTowns_)
